@@ -8,7 +8,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
 from config import TELEGRAM_BOT_TOKEN, OPENAI_API_KEY
-from memory import add_message, get_history, get_stats, get_recent_interactions
+from memory import add_message, get_history, get_stats, get_recent_interactions, clear_history
 from agent.orchestrator import Orchestrator
 
 logging.basicConfig(
@@ -22,7 +22,35 @@ orchestrator = Orchestrator()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /start command."""
-    await update.message.reply_text("Hello! I'm AI-PASS, your personal assistant. Send me a message!")
+    await update.message.reply_text(
+        "\U0001f44b Welcome to AI-PASS\n"
+        "I am a smart AI agent that can understand, plan, and execute tasks.\n"
+        "Just send a message to get started."
+    )
+
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /help command."""
+    await update.message.reply_text(
+        "\U0001f916 AI-PASS can help you with:\n"
+        "\u2022 Answer questions\n"
+        "\u2022 Summarize text\n"
+        "\u2022 Help with coding\n"
+        "\u2022 Analyze problems\n\n"
+        "Just send a message and I'll do my best!"
+    )
+
+
+async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /clear command."""
+    chat_id = update.effective_chat.id
+    clear_history(chat_id)
+    await update.message.reply_text("\U0001f9f9 Memory cleared.")
+
+
+async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /status command."""
+    await update.message.reply_text("\u2705 System is running")
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -111,6 +139,9 @@ def main() -> None:
 
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("clear", clear))
+    app.add_handler(CommandHandler("status", status))
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 

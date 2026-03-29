@@ -1,12 +1,13 @@
 """AI-PASS – Telegram bot entry point."""
 
+import json
 import logging
 import sys
 
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-from config import TELEGRAM_BOT_TOKEN
+from config import TELEGRAM_BOT_TOKEN, OPENAI_API_KEY
 from memory import add_message, get_history
 from agent.orchestrator import Orchestrator
 
@@ -29,24 +30,38 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     chat_id = update.effective_chat.id
     user_text = update.message.text
 
+    # Get structured response from orchestrator (with chat context)
+    # NOTE: store user message AFTER getting history so the current message
+    # isn't duplicated (orchestrator already passes it as user_message).
+    raw_response = orchestrator.handle(user_text, chat_id)
+
     # Store user message
     add_message(chat_id, "user", user_text)
 
-    # Get response from orchestrator
-    response = orchestrator.handle(user_text)
+    # Format for Telegram
+    try:
+        data = json.loads(raw_response)
+        reply = (
+            f"📋 {data.get('summary', '')}\n"
+            f"⚡ Priority: {data.get('priority', 'medium')}\n"
+            f"➡️ Action: {data.get('action', '')}"
+        )
+        # Store the clean summary in memory (not the emoji-formatted text)
+        add_message(chat_id, "assistant", data.get("summary", raw_response))
+    except (json.JSONDecodeError, TypeError):
+        reply = raw_response
+        add_message(chat_id, "assistant", raw_response)
 
-    # Store assistant response
-    add_message(chat_id, "assistant", response)
-
-    await update.message.reply_text(response)
+    await update.message.reply_text(reply)
 
 
 def main() -> None:
     if not TELEGRAM_BOT_TOKEN:
         logger.warning("TELEGRAM_BOT_TOKEN not set – running dry-run smoke test instead.")
-        # Smoke test: make sure all imports and orchestrator work
+        if not OPENAI_API_KEY:
+            logger.warning("OPENAI_API_KEY not set – pipeline will use fallback error handling.")
         result = orchestrator.handle("hello world")
-        print(f"Smoke test passed. Orchestrator returned: {result}")
+        print(f"Smoke test passed. Orchestrator returned:\n{result}")
         sys.exit(0)
 
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()

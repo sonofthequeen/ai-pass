@@ -9,6 +9,7 @@ from agent.evaluator import Evaluator
 from tools.text_processor import TextProcessorTool
 from tools.classifier import ClassifierTool
 from tools.action_tool import ActionTool
+from memory import get_history
 from models import ToolResult
 
 logger = logging.getLogger(__name__)
@@ -26,9 +27,10 @@ class Orchestrator:
             "action": ActionTool(),
         }
 
-    def handle(self, user_message: str) -> str:
+    def handle(self, user_message: str, chat_id: int | None = None) -> str:
         # --- 1. INTAKE ---
         logger.info("INTAKE: received message")
+        history = get_history(chat_id) if chat_id is not None else []
 
         # --- 2. PLAN ---
         plan = self.planner.plan(user_message)
@@ -46,7 +48,7 @@ class Orchestrator:
             results.append(result)
 
         # --- 4. EVALUATE ---
-        response = self.evaluator.evaluate(user_message, results)
+        response = self.evaluator.evaluate(user_message, results, history)
         logger.info("EVALUATE: response=%s", response)
 
         # --- 5. DELIVER ---

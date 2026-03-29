@@ -42,9 +42,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     try:
         data = json.loads(raw_response)
         reply = (
+            f"🏷 Type: {data.get('task_type', 'other')}\n"
             f"📋 {data.get('summary', '')}\n"
             f"⚡ Priority: {data.get('priority', 'medium')}\n"
-            f"➡️ Action: {data.get('action', '')}"
+            f"➡️ Action: {data.get('suggested_action', '')}\n"
+            f"🎯 Confidence: {data.get('confidence', 0.5)}"
         )
         # Store the clean summary in memory (not the emoji-formatted text)
         add_message(chat_id, "assistant", data.get("summary", raw_response))

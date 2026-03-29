@@ -50,10 +50,13 @@ class Evaluator:
                         "and tool outputs, produce a concise, helpful answer.\n"
                         "Use the conversation history to maintain context across messages.\n"
                         "Reply ONLY with a JSON object:\n"
-                        '{"summary": "...", "priority": "low|medium|high", "action": "..."}\n'
+                        '{"task_type": "...", "summary": "...", "priority": "low|medium|high", '
+                        '"suggested_action": "...", "confidence": 0.0}\n'
+                        "task_type = the type of user request (e.g. question, task, greeting, feedback, other).\n"
                         "summary = your concise answer to the user.\n"
                         "priority = how urgent the request is.\n"
-                        "action = suggested next step for the user."
+                        "suggested_action = suggested next step for the user.\n"
+                        "confidence = your confidence in the response, a float between 0.0 and 1.0."
                     ),
                 },
             ]
@@ -74,22 +77,29 @@ class Evaluator:
             )
             raw = resp.choices[0].message.content.strip()
             raw = _strip_code_fences(raw)
-            # Validate JSON
+            # Validate JSON and ensure all required fields
             data = json.loads(raw)
+            data.setdefault("task_type", "other")
+            data.setdefault("summary", "")
+            data.setdefault("priority", "medium")
+            data.setdefault("suggested_action", data.pop("action", ""))
+            data.setdefault("confidence", 0.5)
             return json.dumps(data, ensure_ascii=False)
         except json.JSONDecodeError:
             logger.warning("Evaluator returned non-JSON, wrapping raw response")
             return json.dumps(
-                {"summary": raw, "priority": "medium", "action": "Review response"},
+                {"task_type": "other", "summary": raw, "priority": "medium", "suggested_action": "Review response", "confidence": 0.4},
                 ensure_ascii=False,
             )
         except Exception as exc:
             logger.error("Evaluator error: %s", exc)
             return json.dumps(
                 {
+                    "task_type": "other",
                     "summary": "Sorry, I couldn't process your request.",
                     "priority": "medium",
-                    "action": "Please try again.",
+                    "suggested_action": "Please try again.",
+                    "confidence": 0.0,
                 },
                 ensure_ascii=False,
             )

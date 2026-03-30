@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-_memory: dict[int, list[dict]] = {}
+_memory: dict[int | str, list[dict]] = {}
 _interactions: list[dict] = []
 
 MAX_HISTORY = 20
 MAX_INTERACTIONS = 200
 
 
-def add_message(chat_id: int, role: str, content: str) -> None:
+def add_message(chat_id: int | str, role: str, content: str) -> None:
     """Append a message to the chat history."""
     if chat_id not in _memory:
         _memory[chat_id] = []
@@ -29,12 +29,12 @@ def add_message(chat_id: int, role: str, content: str) -> None:
         _interactions[:] = _interactions[-MAX_INTERACTIONS:]
 
 
-def get_history(chat_id: int) -> list[dict]:
+def get_history(chat_id: int | str) -> list[dict]:
     """Return the message history for a chat."""
     return list(_memory.get(chat_id, []))
 
 
-def clear_history(chat_id: int) -> None:
+def clear_history(chat_id: int | str) -> None:
     """Clear memory for a chat."""
     _memory.pop(chat_id, None)
 

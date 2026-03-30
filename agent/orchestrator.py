@@ -30,7 +30,7 @@ class Orchestrator:
             "action": ActionTool(),
         }
 
-    def handle(self, user_message: str, chat_id: int | None = None) -> str:
+    def handle(self, user_message: str, chat_id: int | str | None = None) -> str:
         tag = f"[chat={chat_id}]" if chat_id is not None else "[no-chat]"
 
         # --- 1. INTAKE ---

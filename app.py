@@ -2,16 +2,59 @@
 
 import asyncio
 import json
+import logging
+from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
 
 from agent.orchestrator import Orchestrator
+from config import TELEGRAM_BOT_TOKEN
 from memory import add_message, clear_history
+from main import start, help_command, clear, status, stats, handle_message
 
-app = FastAPI(title="AI-Pass Agent API")
+logger = logging.getLogger(__name__)
+
+
+def _build_bot():
+    """Build the Telegram Application (without starting it)."""
+    bot_app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+    bot_app.add_handler(CommandHandler("start", start))
+    bot_app.add_handler(CommandHandler("help", help_command))
+    bot_app.add_handler(CommandHandler("clear", clear))
+    bot_app.add_handler(CommandHandler("status", status))
+    bot_app.add_handler(CommandHandler("stats", stats))
+    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    return bot_app
+
+
+@asynccontextmanager
+async def lifespan(app):
+    """Start Telegram bot polling alongside the web server."""
+    if TELEGRAM_BOT_TOKEN:
+        bot_app = _build_bot()
+        await bot_app.initialize()
+        await bot_app.start()
+        await bot_app.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+        logger.info("Telegram bot started (polling)")
+    else:
+        bot_app = None
+        logger.warning("TELEGRAM_BOT_TOKEN not set – bot disabled")
+
+    yield
+
+    if bot_app is not None:
+        await bot_app.updater.stop()
+        await bot_app.stop()
+        await bot_app.shutdown()
+        logger.info("Telegram bot stopped")
+
+
+app = FastAPI(title="AI-Pass Agent API", lifespan=lifespan)
 orchestrator = Orchestrator()
 
 HTML_PAGE = """<!DOCTYPE html>
